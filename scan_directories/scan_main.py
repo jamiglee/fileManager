@@ -4,7 +4,14 @@
 
 import os
 import time
+import jutil
 import logging
+
+# logging.basicConfig(format='%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%(funcName)s|%(message)s')
+
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s: %(message)s',level='INFO')
+
+
 
 # 1. 扫描目录，将hash值和文件的路径保存到key value的map中{"hashstring": [路径list]}
 # 2. 如果发现已经存在hashstring，代表有重复文件，单独记录到set中；
@@ -23,9 +30,16 @@ def read_cfg():
     # 初始化图片，音频，视频后缀
     global local_file_path
     # _local_file_path_ = "/media/jamie/Document/GatewayFiles/photo"
-    local_file_path = "/media/jamie/Document"
-
-    print(local_file_path)
+    if jutil.isLinux() == True:
+        logging.info("OS is linux")
+        local_file_path = "/media/jamie/Document"
+    elif jutil.isWindows() == True:
+        logging.info("OS is windows")
+        local_file_path = "E:\\djgo\\testdir"
+    else:
+        logging.error("unknown OS")
+        
+    logging.debug(local_file_path)
     return
 
 
@@ -33,7 +47,7 @@ def visit_path(root_path):
     try:
         li = os.listdir(root_path)
     except FileNotFoundError as e:
-        print_with_time("No such file or directory : %s" % root_path)
+        logging.warning("No such file or directory : %s" % root_path)
         return
 
     for p in li:
@@ -43,23 +57,39 @@ def visit_path(root_path):
         else:
             # file_name = p;
             process_one_file(path_name, get_file_md5(path_name))
-            # logging.debug(path_name + ":" + str(get_file_md5(path_name)))
+            logging.debug(path_name + ":" + str(get_file_md5(path_name)))
     return
 
 
 def get_file_md5(pathname):
-    # if file md5 error how process
     if os.path.isfile(pathname):
-        command = 'md5sum "' + pathname + '"'
-        results = os.popen(command)
-        result = results.read()
-        for line in result.splitlines():
-            # print(line)
-            md5value = line.split(" ")[0]
-            return md5value
-        # logging.exception("calc error:", pathname)
+        if jutil.isLinux() == True:
+            command = 'md5sum "' + pathname + '"'
+            results = os.popen(command)
+            result = results.read()
+            for line in result.splitlines():
+                # print(line)
+                md5value = line.split(" ")[0]
+                return md5value
+            logging.exception("calc error:", pathname)
+        elif jutil.isWindows() == True:
+            command = 'certutil -hashfile "' + pathname + '" MD5'
+            results = os.popen(command)
+            result = results.read()
+            # for line in result.splitlines():
+            #     print(line)
+            #     # md5value = line.split(" ")[0]
+            #     # return md5value
+            logging.debug("file " + pathname + " md5:" + result.splitlines()[1])
+            return result.splitlines()[1]
+            # for line in result.splitlines():
+            #     print(line)
+            #     # md5value = line.split(" ")[0]
+            #     # return md5value
+        else:
+            return
     else:
-        print(pathname + ": not a file")
+        logging.warning(pathname + ": not a file")
         return
     return
 
@@ -94,14 +124,11 @@ def get_print_duplicate_files():
     print("found same files:")
     num = 1
     for hashValue in duplicate_filehash_set:
-
-        # print(hashValue)  # debug
         print("============ %d:%s ============" % (num, hashValue))
         path_list = hashfile_dict.get(hashValue)
         for n in range(len(path_list)):
             print(path_list[n])
         print("============ %d:%s ============" % (num, hashValue))
-        # print("n%: %s": num _hashfile_dict_.get(hashValue))
         num = num + 1
 
 
@@ -112,18 +139,18 @@ def print_with_time(log):
 def scan_duplicate_files():
     try:
         # 定义扫描目录
-        print_with_time("init..begin")
+        logging.warning("init..begin")
         read_cfg()
-        print_with_time("init..end")
-        print_with_time("scan path..begin")
+        logging.warning("init..end")
+        logging.warning("scan path begin: " + local_file_path)
         visit_path(local_file_path)
-        print_with_time("scan path..end")
+        logging.warning("scan path..end")
 
-        print_with_time("scan %d files" % file_num)
+        logging.warning("scan %d files" % file_num)
 
-        print_with_time("print..begin")
+        logging.warning("print..begin")
         get_print_duplicate_files()
-        print_with_time("print..end")
+        logging.warning("print..end")
     except Exception as e:
         logging.exception(e)
     finally:
