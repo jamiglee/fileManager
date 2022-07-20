@@ -6,10 +6,11 @@ import os
 import time
 import jutil
 import logging
+from configparser import ConfigParser
 
 # logging.basicConfig(format='%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%(funcName)s|%(message)s')
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s: %(message)s',level='INFO')
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(filename)s:%(funcName)s:%(lineno)d: %(message)s', level='DEBUG')
 
 
 
@@ -25,22 +26,39 @@ file_num = 0
 
 # read config file:
 def read_cfg():
+    config = ConfigParser()
+    this_file_path = os.path.dirname(os.path.abspath(__file__))
+    
+    config_path = this_file_path + "%s..%sresources%sconfig.ini" % (os.sep, os.sep, os.sep)
+    config_path = os.path.abspath(config_path)
+    logging.debug("config path: %s" % config_path)
+    config.read(config_path)
+
     # 定义扫描目录，区分linux/windows，如果不定义默认扫描全部目录；
     # 初始化文件例外的文件大小;
     # 初始化图片，音频，视频后缀
     global local_file_path
-    # _local_file_path_ = "/media/jamie/Document/GatewayFiles/photo"
     if jutil.isLinux() == True:
+        config_map = config["linux"]
         logging.info("OS is linux")
-        local_file_path = "/media/jamie/Document"
+        local_file_path = config_map["scan_path"]
     elif jutil.isWindows() == True:
         logging.info("OS is windows")
-        local_file_path = "E:\\djgo\\testdir"
+        print(config.sections())
+        print(config.items('windows'))
+        config_map = config['windows']
+        local_file_path = config_map['scan_path']
     else:
         logging.error("unknown OS")
         
     logging.debug(local_file_path)
     return
+
+def visit_path_list(path_list):
+    for path in path_list:
+        logging.debug(path)
+    return
+
 
 
 def visit_path(root_path):
@@ -157,9 +175,6 @@ def scan_duplicate_files():
         return
 
 
-
-# get_file_md5("/media/jamie/Document/GatewayFiles/photo/惠州/IMG_0014 (1).JPG")
-
 def test():
     process_one_file("/proc", "hash1")
     process_one_file("/proc1", "hash12")
@@ -172,4 +187,9 @@ def test():
     print(duplicate_filehash_set)
     get_print_duplicate_files()
 
-scan_duplicate_files()
+if __name__ == '__main__':
+    # scan_duplicate_files()
+    path = []
+    path.append("E:\\")
+    path.append("D:\\")
+    visit_path_list(path)
