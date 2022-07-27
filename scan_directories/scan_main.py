@@ -4,13 +4,17 @@
 
 import os
 import sys
-import jutil
 import logging
 from configparser import ConfigParser
 
+print(os.pardir)
+sys.path.append(os.pardir)
+from util import jutil
+
 logger = logging.getLogger('fileManager')
-formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
-                              'funcName)s|%(message)s')
+# formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
+#                               'funcName)s|%(message)s')
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
 file_handler = logging.FileHandler("scan_main.log")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
@@ -20,7 +24,7 @@ stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 logger.addHandler(file_handler)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 
 
@@ -30,7 +34,7 @@ logger.setLevel(logging.DEBUG)
 
 duplicate_filehash_set = set()
 hashfile_dict = {}
-local_file_path_list = ""
+local_file_path_list = []
 file_total_num = 0
 
 
@@ -43,33 +47,40 @@ def read_cfg():
     config_path = this_file_path + "%s..%sresources%sconfig.ini" % (os.sep, os.sep, os.sep)
     config_path = os.path.abspath(config_path)
     logger.debug("config path: %s" % config_path)
-    config.read(config_path)
+    config.read(config_path, encoding='utf-8')
 
     # 定义扫描目录，区分linux/windows，如果不定义默认扫描全部目录；
     # 初始化文件例外的文件大小;
     # 初始化图片，音频，视频后缀
     global local_file_path_list
     global exclude_files
+    global min_file_size
+
+    ########
     if jutil.isLinux() == True:
-        config_map = config["linux"]
         logger.info("OS is linux")
-        scan_path = config_map["scan_path"]
-        print("scan_path:" + scan_path)
-        if(scan_path == None):
-            logger.error("Please set scan path first!")
-        local_file_path_list = scan_path.split(";")
-
-        exclude_files_str = config_map["exclude_files"]
-        exclude_files = exclude_files_str.split(";")
-
+        config_map = config["linux"]
     elif jutil.isWindows() == True:
         logger.info("OS is windows")
-        # print(config.sections())
-        # print(config.items('windows'))
         config_map = config['windows']
-        local_file_path_list = config_map['scan_path']
     else:
         logger.error("unknown OS")
+
+    ## init local_file_path
+    scan_path = config_map["scan_path"]
+    print("scan_path:" + scan_path)
+    if(scan_path == None):
+        logger.error("Please set scan path first!")
+    local_file_path_list = scan_path.split(";")
+
+    exclude_files_str = config_map["exclude_files"] if config_map.__contains__("exclude_files") else ""
+    exclude_files = exclude_files_str.split(";")
+    ##
+
+    ## init min_file_size
+    min_file_size = int(config_map["min_file_size"]) if config_map.__contains__("min_file_size") else 0
+    logger.debug("min_file_size: %s bytes" % min_file_size)
+    ##
         
     logger.debug(local_file_path_list)
     return
@@ -96,9 +107,11 @@ def visit_path(root_path):
             continue
         path_name = os.path.join(root_path, p)
         if not os.path.isfile(path_name):  # 判断路径是否为文件，如果不是继续遍历
+            logger.warning("scan path: %s" % path_name)
             visit_path(path_name)
         else:
-            # file_name = p;
+            if os.path.getsize(path_name) < min_file_size:
+                return
             process_one_file(path_name, get_file_md5(path_name))
             logger.debug(path_name + ":" + str(get_file_md5(path_name)))
     return
@@ -206,6 +219,7 @@ def test():
     get_print_duplicate_files()
 
 if __name__ == '__main__':
+    print(11213)
     scan_duplicate_files()
       # path = []
     # path.append("E:\\")

@@ -2,8 +2,8 @@
 # -*- coding: UTF-8 -*-
 # coding=utf-8
 import sys
+import scan_directories.scan_main as scan
 
-import scan_directories as scan
 
 def show_main_desc():
     print("Welcome to use duplicate files scanner!\n"
@@ -14,9 +14,12 @@ def show_main_desc():
 def main():
     show_main_desc()
     a = sys.stdin.readline()
-    print(a)
-    if a == 1:
-        print("12")
+    # print(a)
+    # print(type(a))
+    if int(a) == 1:
+        scan.scan_duplicate_files()
+    else:
+        print(0)
     return
 
 
