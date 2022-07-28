@@ -65,6 +65,30 @@ def testthisfile():
     cur.close()
     conn.close()
 
+def get_memory_db_conn():
+    return sqlite3.connect(':memory:')
+
+
+def create_file_table():
+    conn = get_memory_db_conn()
+    cur = conn.cursor()
+    # 建表的sql语句
+    create_table_sql = '''create table if not exists fileInfos(
+        device_id varchar(36),
+        name varchar(255),
+        path varchar(1000),
+        type varchar(36),
+        md5_value varchar(36),
+        byte_size bigint,
+        create_time datetime
+    )'''
+    # 执行sql语句
+    cur.execute(create_table_sql)
+    cur.close()
+    conn.close()
+    logger.info("create table fileInfos success!")
+    return
+
 if __name__ == '__main__':
     print(11213)
 
