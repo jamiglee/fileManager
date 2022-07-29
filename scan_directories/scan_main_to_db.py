@@ -1,0 +1,180 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+# coding=utf-8
+
+import os
+import sys
+import logging
+from configparser import ConfigParser
+
+print(os.pardir)
+sys.path.append(os.pardir)
+from util import jutil
+from util import file
+from util import db
+
+
+logger = logging.getLogger('fileManager')
+# formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
+#                               'funcName)s|%(message)s')
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
+# file_handler = logging.FileHandler("scan_main.log")
+# file_handler.setLevel(logging.DEBUG)
+# file_handler.setFormatter(formatter)
+
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+# logger.addHandler(file_handler)
+logger.setLevel(logging.WARNING)
+
+
+
+# 1. 扫描目录，将hash值和文件的路径保存到key value的map中{"hashstring": [路径list]}
+# 2. 如果发现已经存在hashstring，代表有重复文件，单独记录到set中；
+# 3. 遍历set输出路径；
+
+local_file_path_list = []
+file_total_num = 0
+
+
+
+# read config file:
+def read_cfg():
+    config = ConfigParser()
+    this_file_path = os.path.dirname(os.path.abspath(__file__))
+    
+    config_path = this_file_path + "%s..%sresources%sconfig.ini" % (os.sep, os.sep, os.sep)
+    config_path = os.path.abspath(config_path)
+    logger.debug("config path: %s" % config_path)
+    config.read(config_path, encoding='utf-8')
+
+    # 定义扫描目录，区分linux/windows，如果不定义默认扫描全部目录；
+    # 初始化文件例外的文件大小;
+    # 初始化图片，音频，视频后缀
+    global local_file_path_list
+    global exclude_files
+    global min_file_size
+
+    ########
+    if jutil.isLinux() == True:
+        logger.info("OS is linux")
+        config_map = config["linux"]
+    elif jutil.isWindows() == True:
+        logger.info("OS is windows")
+        config_map = config['windows']
+    else:
+        logger.error("unknown OS")
+
+    ## init local_file_path
+    scan_path = config_map["scan_path"]
+    print("scan_path:" + scan_path)
+    if(scan_path == None):
+        logger.error("Please set scan path first!")
+    local_file_path_list = scan_path.split(";")
+
+    exclude_files_str = config_map["exclude_files"] if config_map.__contains__("exclude_files") else ""
+    exclude_files = exclude_files_str.split(";")
+    ##
+
+    ## init min_file_size
+    min_file_size = int(config_map["min_file_size"]) if config_map.__contains__("min_file_size") else 0
+    logger.debug("min_file_size: %s bytes" % min_file_size)
+    ##
+        
+    logger.debug(local_file_path_list)
+    return
+
+def visit_path_list(path_list, conn, cur):
+    for path in path_list:
+        logger.warning("scan path [%s] begin" % path)
+        visit_path(path, conn, cur)
+        logger.warning("scan path [%s] end" % path)
+    return
+
+
+
+def visit_path(root_path, conn, cur):
+    try:
+        li = os.listdir(root_path)
+    except FileNotFoundError as e:
+        logger.warning("No such file or directory : %s" % root_path)
+        return
+
+    for p in li:
+        if p in exclude_files:
+            logger.warning("exclude file/dir: %s" % p)
+            continue
+        path_name = os.path.join(root_path, p)
+        if not os.path.isfile(path_name):  # 判断路径是否为文件，如果不是继续遍历
+            logger.warning("scan path: %s" % path_name)
+            visit_path(path_name, conn, cur)
+        else:
+            if os.path.getsize(path_name) < min_file_size:
+                return
+            db.insert_info(conn, cur, file.get_file_info(path_name))
+    return
+
+
+
+
+# init local db, 从本地实例化的文件中初始化，也可以从网络盘中初始化；用来和多个计算机上的文件作对比
+# def initDb():
+#   return;
+
+
+
+def get_print_duplicate_files(cur):
+    # query_duplicate_sql = "select * from file_infos"
+    query_duplicate_sql = "select name, path, md5_value from file_infos group by md5_value having count(1) > 1 "
+    results = cur.execute(query_duplicate_sql).fetchall()
+    print(results)
+    if len(results) == 0:
+        logger.warning("not found duplicated files")
+        return
+    logger.warning("found same files:")
+    num = 1
+    for result in results:
+        logger.warning("============ %d:%s ============\n\r" % (num, result))
+        # for n in range(len(path_list)):
+        #     logger.warning(path_list[n])
+        # logger.warning("============ %d:%s ============" % (num, hashValue))
+        num = num + 1
+
+def scan_duplicate_files():
+    try:
+        # 定义扫描目录
+        logger.warning("init..begin")
+        read_cfg()
+        logger.warning("init..end")
+        conn = db.get_memory_db_conn()
+        cur = db.get_cur(conn)
+        db.create_file_table(cur)
+        logger.warning("scan paths..begin")
+        visit_path_list(local_file_path_list, conn, cur)
+        logger.warning("scan paths..end")
+        logger.warning("scan %d files" % file_total_num)
+        logger.warning("print..begin")
+        get_print_duplicate_files(cur)
+        db.close_cur(cur)
+        db.close_conn(conn)
+        logger.warning("print..end")
+    except Exception as e:
+        logger.exception(e)
+    finally:
+        return
+
+
+def test():
+    print(hashfile_dict)
+    print(duplicate_filehash_set)
+    get_print_duplicate_files()
+
+if __name__ == '__main__':
+    print(11213)
+    scan_duplicate_files()
+      # path = []
+    # path.append("E:\\")
+    # path.append("D:\\")
+    # visit_path_list(path)

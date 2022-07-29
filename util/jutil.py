@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level="INFO")
 
 # 获取当前电脑的uuid
-def GetUUID():
+def get_device_id():
     cmd = 'wmic csproduct get uuid'
     uuid = str(subprocess.check_output(cmd))
     pos1 = uuid.find("\\n")+2
@@ -34,3 +34,7 @@ def isLinux():
     except Exception as e:
         logger.error(e)
     return False
+
+
+if __name__ == '__main__':
+    print(get_device_id())

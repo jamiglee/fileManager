@@ -3,23 +3,41 @@
 import sqlite3
 import logging
 import sys
-import file
+from util import file
 
 logger = logging.getLogger('fileManager')
 # formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
 #                               'funcName)s|%(message)s')
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
+# formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
 # file_handler = logging.FileHandler("scan_main.log")
 # file_handler.setLevel(logging.DEBUG)
 # file_handler.setFormatter(formatter)
 # logger.addHandler(file_handler)
 
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
+# stream_handler = logging.StreamHandler(sys.stdout)
+# stream_handler.setLevel(logging.INFO)
+# stream_handler.setFormatter(formatter)
+# logger.addHandler(stream_handler)
 
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
+
+
+def get_cur(conn):
+    return conn.cursor()
+    
+def close_cur(cur):
+    cur.close()
+    return
+
+
+def close_conn(conn):
+    conn.close()
+    return
+
+
+def commit(conn):
+    conn.commit()
+    return
 
 
 def testthisfile():
@@ -29,7 +47,7 @@ def testthisfile():
     cur = conn.cursor()
 
     # 建表的sql语句
-    sql_text_1 = '''create table fileInfos(
+    sql_text_1 = '''create table file_infos(
         device_id varchar(36),
         name varchar(255),
         path varchar(1000),
@@ -41,22 +59,22 @@ def testthisfile():
     # 执行sql语句
     cur.execute(sql_text_1)
 
-    logger.info("create table fileInfos success!")
+    logger.info("create table file_infos success!")
 
 
     path = "f:/github/fileManager/util/file.py"
     file_info = file.get_file_info(path)
     print("file_info %s" % file_info)
-    sql_text_2 = "INSERT INTO fileInfos VALUES('windows', '%s', '%s', '%s', '%s', '%s', '%s')" % (file_info['name'], file_info['path'],file_info['type'],file_info['path'],file_info['byte_size'],file_info['create_time'])
+    sql_text_2 = "INSERT INTO file_infos VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (file_info['device_id'], file_info['name'], file_info['path'],file_info['type'],file_info['path'],file_info['byte_size'],file_info['create_time'])
     print(sql_text_2)
     cur.execute(sql_text_2)
 
     conn.commit()
-    logger.info("insert table fileInfos success!")
+    logger.info("insert table file_infos success!")
 
 
     # 查询数学成绩大于90分的学生
-    sql_text_3 = "SELECT * FROM fileInfos"
+    sql_text_3 = "SELECT * FROM file_infos"
     cur.execute(sql_text_3)
     # 获取查询结果
 
@@ -69,11 +87,9 @@ def get_memory_db_conn():
     return sqlite3.connect(':memory:')
 
 
-def create_file_table():
-    conn = get_memory_db_conn()
-    cur = conn.cursor()
+def create_file_table(cur):
     # 建表的sql语句
-    create_table_sql = '''create table if not exists fileInfos(
+    create_table_sql = '''create table if not exists file_infos(
         device_id varchar(36),
         name varchar(255),
         path varchar(1000),
@@ -84,12 +100,33 @@ def create_file_table():
     )'''
     # 执行sql语句
     cur.execute(create_table_sql)
-    cur.close()
-    conn.close()
-    logger.info("create table fileInfos success!")
+    logger.info("create table file_infos success!")
     return
 
-if __name__ == '__main__':
-    print(11213)
 
-    testthisfile()
+def insert_info(conn, cur, file_info):
+    sql_text_2 = "INSERT INTO file_infos VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (file_info['device_id'], file_info['name'], file_info['path'], file_info['type'], file_info['md5_value'], file_info['byte_size'], file_info['create_time'])
+    cur.execute(sql_text_2)
+    conn.commit()
+
+
+def query_file_infos(conn, cur, limit=100):
+    query_sql = "select name, count(1) from file_infos where count(1) > 1 group by md5_value"
+    cur.execute(query_sql)
+    result = cur.fetchall()
+    logger.debug(result.__len__)
+    logger.info(result)
+    return
+    
+
+if __name__ == '__main__':
+    conn = get_memory_db_conn()
+    cur = conn.cursor()
+    create_file_table(cur)
+    path = "f:/github/fileManager/util/file.py"
+    file_info = file.get_file_info(path)
+    for i in range(1, 10):
+        insert_info(conn, cur, file_info)
+    query_file_infos(conn, cur, 2)
+    cur.close()
+    conn.close()
