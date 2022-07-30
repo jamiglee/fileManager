@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 # coding=utf-8
 
+from cmath import log
 import os
 import sys
 import logging
@@ -12,24 +13,9 @@ sys.path.append(os.pardir)
 from util import jutil
 from util import file
 from util import db
+from util import logger
 
-
-logger = logging.getLogger('fileManager')
-# formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
-#                               'funcName)s|%(message)s')
-formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
-# file_handler = logging.FileHandler("scan_main.log")
-# file_handler.setLevel(logging.DEBUG)
-# file_handler.setFormatter(formatter)
-
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
-# logger.addHandler(file_handler)
-logger.setLevel(logging.WARNING)
-
-
+log = logger.Logger(loglevel=logging.INFO, loggername=__name__).getlog()
 
 # 1. 扫描目录，将hash值和文件的路径保存到key value的map中{"hashstring": [路径list]}
 # 2. 如果发现已经存在hashstring，代表有重复文件，单独记录到set中；
@@ -47,7 +33,7 @@ def read_cfg():
     
     config_path = this_file_path + "%s..%sresources%sconfig.ini" % (os.sep, os.sep, os.sep)
     config_path = os.path.abspath(config_path)
-    logger.debug("config path: %s" % config_path)
+    log.debug("config path: %s" % config_path)
     config.read(config_path, encoding='utf-8')
 
     # 定义扫描目录，区分linux/windows，如果不定义默认扫描全部目录；
@@ -59,19 +45,19 @@ def read_cfg():
 
     ########
     if jutil.isLinux() == True:
-        logger.info("OS is linux")
+        log.info("OS is linux")
         config_map = config["linux"]
     elif jutil.isWindows() == True:
-        logger.info("OS is windows")
+        log.info("OS is windows")
         config_map = config['windows']
     else:
-        logger.error("unknown OS")
+        log.error("unknown OS")
 
     ## init local_file_path
     scan_path = config_map["scan_path"]
     print("scan_path:" + scan_path)
     if(scan_path == None):
-        logger.error("Please set scan path first!")
+        log.error("Please set scan path first!")
     local_file_path_list = scan_path.split(";")
 
     exclude_files_str = config_map["exclude_files"] if config_map.__contains__("exclude_files") else ""
@@ -80,17 +66,17 @@ def read_cfg():
 
     ## init min_file_size
     min_file_size = int(config_map["min_file_size"]) if config_map.__contains__("min_file_size") else 0
-    logger.debug("min_file_size: %s bytes" % min_file_size)
+    log.debug("min_file_size: %s bytes" % min_file_size)
     ##
         
-    logger.debug(local_file_path_list)
+    log.debug(local_file_path_list)
     return
 
 def visit_path_list(path_list, conn, cur):
     for path in path_list:
-        logger.warning("scan path [%s] begin" % path)
+        log.warning("scan path [%s] begin" % path)
         visit_path(path, conn, cur)
-        logger.warning("scan path [%s] end" % path)
+        log.warning("scan path [%s] end" % path)
     return
 
 
@@ -99,16 +85,16 @@ def visit_path(root_path, conn, cur):
     try:
         li = os.listdir(root_path)
     except FileNotFoundError as e:
-        logger.warning("No such file or directory : %s" % root_path)
+        log.warning("No such file or directory : %s" % root_path)
         return
 
     for p in li:
         if p in exclude_files:
-            logger.warning("exclude file/dir: %s" % p)
+            log.warning("exclude file/dir: %s" % p)
             continue
         path_name = os.path.join(root_path, p)
         if not os.path.isfile(path_name):  # 判断路径是否为文件，如果不是继续遍历
-            logger.warning("scan path: %s" % path_name)
+            log.warning("scan path: %s" % path_name)
             visit_path(path_name, conn, cur)
         else:
             if os.path.getsize(path_name) < min_file_size:
@@ -127,41 +113,43 @@ def visit_path(root_path, conn, cur):
 
 def get_print_duplicate_files(cur):
     # query_duplicate_sql = "select * from file_infos"
-    query_duplicate_sql = "select name, path, md5_value from file_infos group by md5_value having count(1) > 1 "
+    query_duplicate_sql = "select md5_value, name, path  from file_infos where md5_value = (select md5_value from file_infos group by md5_value having count(1) > 1) "
+    # query_duplicate_sql = "select name, path, md5_value from file_infos"
     results = cur.execute(query_duplicate_sql).fetchall()
     print(results)
     if len(results) == 0:
-        logger.warning("not found duplicated files")
+        log.warning("not found duplicated files")
         return
-    logger.warning("found same files:")
-    num = 1
+    log.warning("Found same files:")
+    log.warning(results)
+    log.warning("=============================start print dupliate file=============================")
+    num = 0
+    
     for result in results:
-        logger.warning("============ %d:%s ============\n\r" % (num, result))
-        # for n in range(len(path_list)):
-        #     logger.warning(path_list[n])
-        # logger.warning("============ %d:%s ============" % (num, hashValue))
+        log.warning("No:%d, MD5Value: %s, File Name: %s, File Path: %s" % (num + 1, result[0], result[1], result[2]))
         num = num + 1
+    log.warning("=============================end duplicate file num: %d============================" % num)
 
 def scan_duplicate_files():
     try:
         # 定义扫描目录
-        logger.warning("init..begin")
+        log.warning("init..begin")
         read_cfg()
-        logger.warning("init..end")
+        log.warning("init..end")
         conn = db.get_memory_db_conn()
         cur = db.get_cur(conn)
         db.create_file_table(cur)
-        logger.warning("scan paths..begin")
+        log.warning("scan paths..begin")
         visit_path_list(local_file_path_list, conn, cur)
-        logger.warning("scan paths..end")
-        logger.warning("scan %d files" % file_total_num)
-        logger.warning("print..begin")
+        log.warning("scan paths..end")
+        log.warning("scan %d files" % file_total_num)
+        log.warning("print..begin")
         get_print_duplicate_files(cur)
         db.close_cur(cur)
         db.close_conn(conn)
-        logger.warning("print..end")
+        log.warning("print..end")
     except Exception as e:
-        logger.exception(e)
+        log.exception(e)
     finally:
         return
 

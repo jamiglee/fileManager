@@ -2,25 +2,13 @@
 # coding=utf-8
 
 import datetime
+
 import logging
 import os
 from util import jutil
+from util import logger
 
-logger = logging.getLogger('fileManager')
-# formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
-#                               'funcName)s|%(message)s')
-# formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
-# file_handler = logging.FileHandler("scan_main.log")
-# file_handler.setLevel(logging.DEBUG)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
-
-# stream_handler = logging.StreamHandler(sys.stdout)
-# stream_handler.setLevel(logging.INFO)
-# stream_handler.setFormatter(formatter)
-# logger.addHandler(stream_handler)
-
-# logger.setLevel(logging.DEBUG)
+log = logger.Logger(loglevel=logging.INFO, loggername=__name__).getlog()
 
 
 ''' device_id varchar(36),
@@ -63,7 +51,7 @@ def get_file_info(path):
         print(datetime.datetime.fromtimestamp(os.path.getctime(path)))
         return file
     else:
-        logging.warning("path %s is not a file" % path)
+        log.warning("path %s is not a file" % path)
     return None
 
 
@@ -77,7 +65,7 @@ def get_file_md5(pathname):
                 # print(line)
                 md5value = line.split(" ")[0]
                 return md5value
-            logger.exception("calc error:", pathname)
+            log.exception("calc error:", pathname)
         elif jutil.isWindows() == True:
             command = 'certutil -hashfile "' + pathname + '" MD5'
             results = os.popen(command)
@@ -86,7 +74,7 @@ def get_file_md5(pathname):
             #     print(line)
             #     # md5value = line.split(" ")[0]
             #     # return md5value
-            logger.debug("file " + pathname + " md5:" + result.splitlines()[1])
+            log.debug("file " + pathname + " md5:" + result.splitlines()[1])
             return result.splitlines()[1]
             # for line in result.splitlines():
             #     print(line)
@@ -95,7 +83,7 @@ def get_file_md5(pathname):
         else:
             return
     else:
-        logger.warning(pathname + ": not a file")
+        log.warning(pathname + ": not a file")
         return
     return
 

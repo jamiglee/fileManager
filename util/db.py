@@ -2,25 +2,11 @@
 # coding=utf-8
 import sqlite3
 import logging
-import sys
+
 from util import file
+from util import logger
 
-logger = logging.getLogger('fileManager')
-# formatter = logging.Formatter('%(asctime)s|%(processName)s|%(threadName)s|%(levelname)s|%(filename)s:%(lineno)d|%('
-#                               'funcName)s|%(message)s')
-# formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(funcName)s %(lineno)d : %(message)s')
-# file_handler = logging.FileHandler("scan_main.log")
-# file_handler.setLevel(logging.DEBUG)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
-
-# stream_handler = logging.StreamHandler(sys.stdout)
-# stream_handler.setLevel(logging.INFO)
-# stream_handler.setFormatter(formatter)
-# logger.addHandler(stream_handler)
-
-# logger.setLevel(logging.DEBUG)
-
+log = logger.Logger(loglevel=logging.INFO, loggername=__name__).getlog()
 
 def get_cur(conn):
     return conn.cursor()
@@ -59,7 +45,7 @@ def testthisfile():
     # 执行sql语句
     cur.execute(sql_text_1)
 
-    logger.info("create table file_infos success!")
+    log.info("create table file_infos success!")
 
 
     path = "f:/github/fileManager/util/file.py"
@@ -70,7 +56,7 @@ def testthisfile():
     cur.execute(sql_text_2)
 
     conn.commit()
-    logger.info("insert table file_infos success!")
+    log.info("insert table file_infos success!")
 
 
     # 查询数学成绩大于90分的学生
@@ -100,7 +86,7 @@ def create_file_table(cur):
     )'''
     # 执行sql语句
     cur.execute(create_table_sql)
-    logger.info("create table file_infos success!")
+    log.info("create table file_infos success!")
     return
 
 
@@ -114,8 +100,8 @@ def query_file_infos(conn, cur, limit=100):
     query_sql = "select name, count(1) from file_infos where count(1) > 1 group by md5_value"
     cur.execute(query_sql)
     result = cur.fetchall()
-    logger.debug(result.__len__)
-    logger.info(result)
+    log.debug(result.__len__)
+    log.info(result)
     return
     
 
