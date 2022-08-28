@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 # coding=utf-8
 
-from cmath import log
 import os
 import sys
 import logging
@@ -22,8 +21,8 @@ log = logger.Logger(loglevel=logging.INFO, loggername=__name__).getlog()
 # 3. 遍历set输出路径；
 
 local_file_path_list = []
-file_total_num = 0
 
+file_total_num = 0
 
 
 # read config file:
@@ -72,13 +71,29 @@ def read_cfg():
     log.debug(local_file_path_list)
     return
 
+def scan_path_list(path_list, conn, cur):
+    for path in path_list:
+        log.warning("start scan %s", path)
+        files_list = file.get_files_path(path)
+        # print(files_list)
+        num = 0
+        for file_path in files_list:
+            if num != 0 and num%100 == 0:
+                log.warning("find %d files in %s" % (num, path))
+            file_info = file.get_file_info(file_path)
+            db.insert_info(conn, cur, file_info)
+            num = num + 1
+        log.warning("find %d files in %s" % (num, path))
+        log.warning("start scan %s", path)
+    return
+
+
 def visit_path_list(path_list, conn, cur):
     for path in path_list:
         log.warning("scan path [%s] begin" % path)
         visit_path(path, conn, cur)
         log.warning("scan path [%s] end" % path)
     return
-
 
 
 def visit_path(root_path, conn, cur):
@@ -110,6 +125,18 @@ def visit_path(root_path, conn, cur):
 #   return;
 
 
+def get_print_files_info(cur):
+    query_duplicate_sql = "select name, path, byte_size from file_infos"
+    results = cur.execute(query_duplicate_sql).fetchall()
+    log.warning("=============================start print file info=============================")
+    num = 0
+    
+    for result in results:
+        log.warning("No:%d, File Name: %s, File Path: %s, Size: %s" % (num + 1, result[0], result[1], result[2]))
+        num = num + 1
+    log.warning("=============================end print file num: %d============================" % num)
+    return
+
 
 def get_print_duplicate_files(cur):
     # query_duplicate_sql = "select * from file_infos"
@@ -130,6 +157,29 @@ def get_print_duplicate_files(cur):
         num = num + 1
     log.warning("=============================end duplicate file num: %d============================" % num)
 
+def init_files_info():
+    try:
+        # 定义扫描目录
+        log.warning("init..begin")
+        read_cfg()
+        log.warning("init..end")
+        conn = db.get_database_conn()
+        cur = db.get_cur(conn)
+        db.create_file_table(cur)
+        log.warning("scan paths..begin")
+        scan_path_list(local_file_path_list, conn, cur)
+        log.warning("scan paths..end")
+        log.warning("scan %d files" % file_total_num)
+        log.warning("print..begin")
+        # get_print_files_info(cur)
+        db.close_cur(cur)
+        db.close_conn(conn)
+        log.warning("print..end")
+    except Exception as e:
+        log.exception(e)
+    finally:
+        return
+
 def scan_duplicate_files():
     try:
         # 定义扫描目录
@@ -140,7 +190,11 @@ def scan_duplicate_files():
         cur = db.get_cur(conn)
         db.create_file_table(cur)
         log.warning("scan paths..begin")
-        visit_path_list(local_file_path_list, conn, cur)
+        # visit_path_list(local_file_path_list, conn, cur)
+        files_list = file.get_files_path()
+        for file_path in files_list:
+            file_info = file.get_file_info(file_path)
+            db.insert_info(conn, cur, file_info)
         log.warning("scan paths..end")
         log.warning("scan %d files" % file_total_num)
         log.warning("print..begin")
@@ -155,14 +209,8 @@ def scan_duplicate_files():
 
 
 def test():
-    print(hashfile_dict)
-    print(duplicate_filehash_set)
     get_print_duplicate_files()
 
 if __name__ == '__main__':
     print(11213)
-    scan_duplicate_files()
-      # path = []
-    # path.append("E:\\")
-    # path.append("D:\\")
-    # visit_path_list(path)
+    init_files_info()

@@ -41,5 +41,34 @@
 | md5value | string   | 36   |                                                              |
 | 文件大小 | long     |      | 单位Byte                                                     |
 | 创建时间 | datetime |      |                                                              |
+| 更新时间 | datetime |      |                                                              |
 
-## 
+文件夹信息表
+
+| 字段     | 类型     | 长度 |                                                              |
+| -------- | -------- | ---- | ------------------------------------------------------------ |
+| 设备名   | string   | 36   | 支持多台设备中的文件对比，预留字段，默认以执行机器的uuid作为标识 |
+| 文件夹   | string   | 255  |                                                              |
+| 路径     | string   | 1000 |                                                              |
+| 文件类型 | string   | 36   | 存放拓展名                                                   |
+| md5value | string   | 36   |                                                              |
+| 文件大小 | long     |      | 单位Byte                                                     |
+| 创建时间 | datetime |      |                                                              |
+| 更新时间 | datetime |      |                                                              |
+
+
+
+### DB
+
+```mermaid
+classDiagram
+  classA <|-- classB : 继承
+  classC *-- classD : 组成
+  classE o-- classF : 集合
+  classG <-- classH : 关联
+  classI -- classJ : 实线连接
+  classK <.. classL : 依赖
+  classM <|.. classN : 实现
+  classO .. classP : 虚线连接
+```
+

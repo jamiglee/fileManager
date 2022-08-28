@@ -2,7 +2,10 @@
 # coding=utf-8
 import sqlite3
 import logging
-
+import os
+import sys
+print(os.curdir)
+sys.path.append(os.pardir)
 from util import file
 from util import logger
 
@@ -27,16 +30,16 @@ def commit(conn):
 
 
 def testthisfile():
-    # conn = sqlite3.connect('test.db')
-    conn = sqlite3.connect(':memory:')
+    conn = sqlite3.connect('files_info.db')
+    # conn = sqlite3.connect(':memory:')
 
     cur = conn.cursor()
 
     # 建表的sql语句
     sql_text_1 = '''create table file_infos(
         device_id varchar(36),
-        name varchar(255),
-        path varchar(1000),
+        name varchar(255) not null on conflict abort,
+        path varchar(1000) not null unique on conflict abort,
         type varchar(36),
         md5_value varchar(36),
         byte_size bigint,
@@ -68,21 +71,37 @@ def testthisfile():
     print(cur.fetchall())
     cur.close()
     conn.close()
+def get_database_conn():
+    return sqlite3.connect('files_info.db')
 
 def get_memory_db_conn():
     return sqlite3.connect(':memory:')
+
+def create_dir_table(cur):
+    # 建表的sql语句
+    create_table_sql = '''create table dir_infos if not exists(
+        device_id varchar(36),
+        path varchar(1000) unique on conflict ingore,
+        create_time datetime,
+        update_time datetime
+    )'''
+    # 执行sql语句
+    cur.execute(create_table_sql)
+    log.info("create table dir_infos success!")
+    return
 
 
 def create_file_table(cur):
     # 建表的sql语句
     create_table_sql = '''create table if not exists file_infos(
         device_id varchar(36),
-        name varchar(255),
-        path varchar(1000),
+        name varchar(255) not null,
+        path varchar(1000) unique on conflict ignore,
         type varchar(36),
         md5_value varchar(36),
         byte_size bigint,
-        create_time datetime
+        create_time datetime,
+        update_time datetime
     )'''
     # 执行sql语句
     cur.execute(create_table_sql)
@@ -91,13 +110,16 @@ def create_file_table(cur):
 
 
 def insert_info(conn, cur, file_info):
-    sql_text_2 = "INSERT INTO file_infos VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (file_info['device_id'], file_info['name'], file_info['path'], file_info['type'], file_info['md5_value'], file_info['byte_size'], file_info['create_time'])
-    cur.execute(sql_text_2)
+    # insert_into = "INSERT INTO file_infos VALUES('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')"
+    insert_into = "INSERT INTO file_infos VALUES(?, ?, ?, ?, ?, ?, ?, ?)"
+    data = (file_info["device_id"], file_info["name"], file_info["path"], file_info["type"], file_info["md5_value"], file_info["byte_size"], file_info["create_time"], file_info["update_time"])
+    cur.execute(insert_into, data)
     conn.commit()
 
 
 def query_file_infos(conn, cur, limit=100):
-    query_sql = "select name, count(1) from file_infos where count(1) > 1 group by md5_value"
+    # query_sql = "select name, count(1) from file_infos group by md5_value having count(1) > 1 "
+    query_sql = "select * from file_infos limit 100 "
     cur.execute(query_sql)
     result = cur.fetchall()
     log.debug(result.__len__)
@@ -106,7 +128,7 @@ def query_file_infos(conn, cur, limit=100):
     
 
 if __name__ == '__main__':
-    conn = get_memory_db_conn()
+    conn = get_database_conn()
     cur = conn.cursor()
     create_file_table(cur)
     path = "f:/github/fileManager/util/file.py"
